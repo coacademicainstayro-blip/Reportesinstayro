@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>INSTITUTO TAYRONA - Sistema de Reporte y Planes de Mejoramiento</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://tailwindcss.com"></script>
+  
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cloudflare.com">
+  
+  <!-- Chart.js for Dashboards -->
+  <script src="https://jsdelivr.net"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            tayrona: {
+              50: '#f0f7ff',
+              100: '#e0effe',
+              500: '#0284c7',
+              700: '#0369a1',
+              800: '#075985',
+              900: '#0c4a6e',
+              accent: '#b91c1c'
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    @import url('https://googleapis.com');
+    body { font-family: 'Inter', sans-serif; }
+    .table-responsive::-webkit-scrollbar { height: 8px; width: 8px; }
+    .table-responsive::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 4px; }
+    .table-responsive::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    .table-responsive::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    @media print {
+      body * { visibility: hidden; }
+      #print-section, #print-section * { visibility: visible; }
+      #print-section { position: absolute; left: 0; top: 0; width: 100%; margin: 0; padding: 15px; background: #fff; }
+      .no-print { display: none !important; }
+      @page { size: letter; margin: 1cm; }
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col">
+
+  <!-- TOP HEADER (Institutional) -->
+  <header class="bg-tayrona-900 text-white shadow-lg no-print">
+    <div class="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center gap-4">
+      <div class="flex items-center gap-4">
+        <div class="bg-white p-2 rounded-full text-tayrona-900 shadow">
+          <i class="fa-solid fa-graduation-cap text-3xl"></i>
+        </div>
+        <div>
+          <h1 class="text-2xl font-bold tracking-tight">INSTITUTO TAYRONA</h1>
+          <p class="text-xs text-tayrona-100">Aprobación Oficial No. 756 | DANE: 147001000123 | NIT: 891.700.452-1</p>
+          <p class="text-xs font-semibold text-amber-300">SISTEMA INTEGRADO DE REPORTES PARCIALES Y PLANES DE MEJORAMIENTO</p>
+        </div>
+      </div>
+      
+      <div class="flex flex-wrap items-center gap-3 bg-tayrona-800 p-2.5 rounded-lg border border-tayrona-700">
+        <div>
+          <label class="block text-xs text-slate-300 font-semibold">Grado Filtrado</label>
+          <select id="select-grado" onchange="actualizarTablaYDashboard()" class="bg-slate-900 text-white text-xs font-medium rounded px-2.5 py-1.5 border border-slate-700 focus:outline-none">
+            <option value="ALL">Todos los Grados</option>
+            <option value="6A">Sexto A</option>
+            <option value="7A">Séptimo A</option>
+            <option value="8A">Octavo A</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs text-slate-300 font-semibold">Periodo Académico</label>
+          <select id="select-periodo" onchange="actualizarTablaYDashboard()" class="bg-slate-900 text-white text-xs font-medium rounded px-2.5 py-1.5 border border-slate-700 focus:outline-none">
+            <option value="Cuarto Periodo">Cuarto Periodo 2026</option>
+            <option value="Tercer Periodo">Tercer Periodo 2026</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- NAVIGATION TABS -->
+  <nav class="bg-white border-b border-slate-200 shadow-sm sticky top-0 z-20 no-print">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex space-x-4 sm:space-x-8 overflow-x-auto">
+        <button onclick="switchTab('tab-registro')" id="btn-tab-registro" class="tab-btn px-4 py-3 text-sm font-semibold border-b-2 border-tayrona-700 text-tayrona-700 flex items-center gap-2 whitespace-nowrap">
+          <i class="fa-solid fa-table"></i> 1. Registro Docente (Sábana)
+        </button>
+        <button onclick="switchTab('tab-dashboard')" id="btn-tab-dashboard" class="tab-btn px-4 py-3 text-sm font-semibold border-b-2 border-transparent text-slate-500 hover:text-tayrona-700 flex items-center gap-2 whitespace-nowrap">
+          <i class="fa-solid fa-chart-pie"></i> 2. Dashboard Resumen
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- MAIN CONTAINER -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-grow w-full">
+    
+    <!-- TOAST ALERTS -->
+    <div id="toast" class="hidden fixed bottom-5 right-5 bg-slate-900 text-white px-5 py-3 rounded-xl shadow-2xl z-50 flex items-center gap-3 transition-opacity duration-300">
+      <i class="fa-solid fa-circle-check text-emerald-400 text-xl"></i>
+      <span id="toast-message" class="text-sm font-medium">Datos sincronizados con la nube</span>
+    </div>
+
+    <!-- TAB 1: REGISTRO -->
+    <section id="tab-registro" class="tab-content space-y-6">
+      <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-lg font-bold text-slate-800">Agregar Nuevo Reporte de Estudiante</h2>
+          <span class="text-xs bg-emerald-100 text-emerald-800 font-semibold px-2.5 py-1 rounded-full"><i class="fa-solid fa-cloud"></i> Conectado en Vivo</span>
+        </div>
+        
+        <!-- FORMULARIO CONECTADO -->
+        <form id="form-registro" onsubmit="guardarRegistro(event)" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Nombre Completo</label>
+            <input type="text" id="input-nombre" required placeholder="Ej: Estrada Rivera Samara" class="w-full p-2 text-sm border border-slate-300 rounded focus:ring-2 focus:ring-tayrona-500 focus:outline-none">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Asignatura</label>
+            <input type="text" id="input-materia" required placeholder="Ej: Matemáticas" class="w-full p-2 text-sm border border-slate-300 rounded focus:ring-2 focus:ring-tayrona-500 focus:outline-none">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Calificación Parcial</label>
+            <input type="number" step="0.1" min="1" max="5" id="input-nota" required placeholder="Ej: 2.8" class="w-full p-2 text-sm border border-slate-300 rounded focus:ring-2 focus:ring-tayrona-500 focus:outline-none">
+          </div>
+          <div class="flex items-end">
+            <button type="submit" class="w-full bg-tayrona-700 hover:bg-tayrona-900 text-white font-bold p-2 rounded text-sm transition flex justify-center items-center gap-2">
+              <i class="fa-solid fa-floppy-disk"></i> Registrar en la Nube
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- SÁBANA DE DATOS -->
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div class="p-4 bg-slate-50 border-b border-slate-200">
+          <h3 class="font-bold text-slate-700">Listado de Reportes Guardados de Forma Global</h3>
+        </div>
+        <div class="table-responsive overflow-x-auto">
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <tr class="bg-slate-100 text-slate-600 text-xs font-bold uppercase border-b border-slate-200">
+                <th class="p-3">Estudiante</th>
+                <th class="p-3">Grado</th>
+                <th class="p-3">Materia</th>
+                <th class="p-3">Nota</th>
+                <th class="p-3">Estado</th>
+              </tr>
+            </thead>
+            <tbody id="tabla-cuerpo" class="text-sm divide-y divide-slate-100">
+              <!-- Cargado dinámicamente -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 2: DASHBOARD -->
+    <section id="tab-dashboard" class="tab-content hidden space-y-6">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+          <h3 class="font-bold text-slate-700 mb-4 text-center">Distribución de Estados Académicos</h3>
+          <div class="max-w-[300px] mx-auto">
+            <canvas id="chartEstados"></canvas>
+          </div>
+        </div>
+        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-center items-center text-center">
+          <i class="fa-solid fa-chart-line text-5xl text-tayrona-500 mb-2"></i>
+          <h4 class="text-3xl font-extrabold text-slate-900 id" id="indicador-total">0</h4>
+          <p class="text-slate-500 font-medium">Registros Consolidados Totales</p>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- CORE LOGIC / JAVASCRIPT NUBE REAL -->
+  <script>
+    // URL de Base de Datos / API de ejemplo en la nube (Puedes cambiarla por tu URL de SheetDB o Supabase)
+    const API_URL = 'https://jsonbin.io'; 
+    const API_KEY = '$2a$10$7XvW7ZfE3MszkNoOka1NCOe5L0y5Zq.e60rFm.99H2pA9Ym/vRImC'; // Llave de lectura pública
+
+    let baseDeDatosGlobal = [];
+    let chartInstance = null;
+
+    // Cargar datos en vivo al abrir la página
+    window.addEventListener('DOMContentLoaded', () => {
+      obtenerDatosDeLaNube();
+    });
+
+    async function obtenerDatosDeLaNube() {
+      try {
+        // En un entorno de producción, aquí consumirías tu Google Sheets o Base de Datos
